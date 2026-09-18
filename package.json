@@ -1,0 +1,11 @@
+{
+  "name": "gex-local",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local GEX levels dashboard on CBOE delayed option quotes",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "mock": "node -e \"process.env.MOCK='1'; require('./server.js')\""
+  }
+}
