@@ -4,6 +4,8 @@ Options-exposure dashboard (GEX, DEX, vanna, charm, IV) on CBOE delayed option q
 (`cdn.cboe.com/api/global/delayed_quotes/options/_NDX.json`, ~15 min delayed).
 Next.js 16 + React 19, no chart library. Node >= 20.9.
 
+Live demo: https://gex-local.vercel.app (Vercel, redeploys on every push to `main`).
+
 Features follow the "Options Flow → Giao dịch Futures" curriculum (5 layers: regime → bias → level → confirmation → plan).
 
 ```bash
