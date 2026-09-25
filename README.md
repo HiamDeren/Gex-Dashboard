@@ -8,6 +8,10 @@ Live demo: https://gex-local.vercel.app (Vercel, redeploys on every push to `mai
 
 Features follow the "Options Flow → Giao dịch Futures" curriculum (5 layers: regime → bias → level → confirmation → plan).
 
+UI in English and Vietnamese (EN / VI switch, top right; saved with the other settings). Symbol is a dropdown of
+indexes, ETFs and large-cap stocks; "Other…" accepts any CBOE ticker. UI strings live in `lib/i18n.ts`; text built
+from data (bias sentence, warnings, scenarios, journal, level roles) sits next to its logic in `lib/` and takes a `lang` argument.
+
 ```bash
 npm install
 npm run dev      # http://localhost:5173
@@ -17,24 +21,25 @@ npm run build && npm start
 ```
 
 ## Tabs
-| Tab | What it shows |
+| Tab (VI / EN) | What it shows |
 |---|---|
-| Tổng quan | Regime (flip, speed, futures hedged per point), GEX × DEX bias matrix + bias sentence, key levels, exposure tiles, profile by strike, GEX-vs-spot curve |
+| Tổng quan / Overview | Regime (flip, speed, futures hedged per point), GEX × DEX bias matrix + bias sentence, key levels, exposure tiles, profile by strike, GEX-vs-spot curve |
 | Exposure | Profile switchable GEX / DEX / Vanna / Charm / Net contracts, nodes ≥ threshold, profile quality |
 | Heat map | Gamma and charm, price × time of the current session, repriced with Black-Scholes; flip line over time |
 | Volatility | Expected move, IV smile per expiry, ATM term structure, 25Δ risk reversal |
-| Bản đồ level | S1–S5 / R1–R5 zones scored on the curriculum's 15-point rubric (13 automatic + 2 for observed reaction) |
-| Kế hoạch | 7-step pre-market checklist, IF–THEN scenarios, 8 playbooks, journal template to copy |
+| Bản đồ level / Level map | S1–S5 / R1–R5 zones scored on the curriculum's 15-point rubric (13 automatic + 2 for observed reaction) |
+| Kế hoạch / Plan | 7-step pre-market checklist, IF–THEN scenarios, 8 playbooks, journal template to copy |
 
 ## Endpoints
 | Route | Purpose |
 |---|---|
 | `/api/chain?symbol=NDX` | Parsed chain used by the UI |
 | `/api/raw?symbol=NDX` | Untouched CBOE JSON (large) |
-| `/api/levels?symbol=NDX&expiry=all&weight=oi&sign=1&range=5&fut=21500&nodeMin=1000` | Levels, exposures, bias and S/R map as JSON (ATAS / scripts). v0.1 fields unchanged |
+| `/api/levels?symbol=NDX&expiry=all&weight=oi&sign=1&range=5&fut=21500&nodeMin=1000&lang=vi` | Levels, exposures, bias and S/R map as JSON (ATAS / scripts). v0.1 fields unchanged |
 
 `expiry`: `all` · `front` · `d7` · `d30` · `YYYY-MM-DD` — `weight`: `oi` · `vol` · `oivol` —
-`sign`: `1` (dealers long calls / short puts, the "naive" model) · `-1` (inverted) — `fut`: futures price, mapped by basis (index) or ratio (ETF).
+`sign`: `1` (dealers long calls / short puts, the "naive" model) · `-1` (inverted) — `fut`: futures price, mapped by basis (index) or ratio (ETF) —
+`lang`: `vi` (default) · `en`, language of the text fields (bias, warnings, zone roles).
 Responses are cached 60 s server-side (`CACHE_TTL_MS`).
 
 ## Math (`lib/`)

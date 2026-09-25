@@ -4,6 +4,7 @@
  */
 import { listExpiries, DAY_MS, type Chain, type Contract } from './core.ts';
 import { atmPair } from './exposure.ts';
+import type { Lang } from './i18n.ts';
 
 export interface SmilePoint {
   K: number;
@@ -72,7 +73,10 @@ function nearestDelta(contracts: Contract[], exp: string, type: 'C' | 'P', targe
 }
 
 export type IvTrend = 'expanding' | 'compressing' | 'flat';
-export const IV_TREND_VI: Record<IvTrend, string> = { expanding: 'bụng ra', compressing: 'nén', flat: 'phẳng' };
+export const IV_TREND_LABEL: Record<Lang, Record<IvTrend, string>> = {
+  vi: { expanding: 'bụng ra', compressing: 'nén', flat: 'phẳng' },
+  en: { expanding: 'expanding', compressing: 'compressing', flat: 'flat' },
+};
 
 /** From CBOE's IV30 change (vol points). ±0.3 pt is a starting threshold, not a law. */
 export function ivTrend(chain: Chain, threshold = 0.3): IvTrend | null {

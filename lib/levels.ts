@@ -12,35 +12,54 @@
  * So the automatic maximum is 13; the trader adds up to 2 for reaction.
  */
 import type { ExposureResult, StrikeRow } from './exposure.ts';
+import type { Lang } from './i18n.ts';
 
 export type Source = 'flip' | 'callWall' | 'putWall' | 'hvl' | 'posNode' | 'negNode' | 'emHigh' | 'emLow' | 'short';
 
-export const SOURCE_LABEL: Record<Source, string> = {
-  flip: 'Gamma flip',
-  callWall: 'Call wall',
-  putWall: 'Put wall',
-  hvl: 'HVL',
-  posNode: 'Node dương',
-  negNode: 'Node âm',
-  emHigh: 'Biên trên EM',
-  emLow: 'Biên dưới EM',
-  short: '0DTE/1DTE sôi',
+export const SOURCE_LABEL: Record<Lang, Record<Source, string>> = {
+  vi: {
+    flip: 'Gamma flip',
+    callWall: 'Call wall',
+    putWall: 'Put wall',
+    hvl: 'HVL',
+    posNode: 'Node dương',
+    negNode: 'Node âm',
+    emHigh: 'Biên trên EM',
+    emLow: 'Biên dưới EM',
+    short: '0DTE/1DTE sôi',
+  },
+  en: {
+    flip: 'Gamma flip',
+    callWall: 'Call wall',
+    putWall: 'Put wall',
+    hvl: 'HVL',
+    posNode: 'Positive node',
+    negNode: 'Negative node',
+    emHigh: 'EM upper edge',
+    emLow: 'EM lower edge',
+    short: 'Hot 0DTE/1DTE',
+  },
 };
 const FAMILY: Record<Source, string> = {
   flip: 'flip', callWall: 'wall', putWall: 'wall', hvl: 'hvl', posNode: 'node', negNode: 'node', emHigh: 'em', emLow: 'em', short: 'short',
 };
+export type Role = 'pivot' | 'edge' | 'magnet' | 'wall' | 'emEdge' | 'pivotMagnet' | 'level0dte';
 // Role shown for the zone = role of its highest-priority source.
-const ROLE: [Source, string][] = [
-  ['flip', 'Pivot'],
-  ['negNode', 'Biên / mức test'],
-  ['posNode', 'Nam châm'],
-  ['callWall', 'Wall'],
-  ['putWall', 'Wall'],
-  ['emHigh', 'Biên EM'],
-  ['emLow', 'Biên EM'],
-  ['hvl', 'Pivot / nam châm'],
-  ['short', 'Level 0DTE'],
+const ROLE: [Source, Role][] = [
+  ['flip', 'pivot'],
+  ['negNode', 'edge'],
+  ['posNode', 'magnet'],
+  ['callWall', 'wall'],
+  ['putWall', 'wall'],
+  ['emHigh', 'emEdge'],
+  ['emLow', 'emEdge'],
+  ['hvl', 'pivotMagnet'],
+  ['short', 'level0dte'],
 ];
+export const ROLE_LABEL: Record<Lang, Record<Role, string>> = {
+  vi: { pivot: 'Pivot', edge: 'Biên / mức test', magnet: 'Nam châm', wall: 'Wall', emEdge: 'Biên EM', pivotMagnet: 'Pivot / nam châm', level0dte: 'Level 0DTE' },
+  en: { pivot: 'Pivot', edge: 'Edge / test level', magnet: 'Magnet', wall: 'Wall', emEdge: 'EM edge', pivotMagnet: 'Pivot / magnet', level0dte: '0DTE level' },
+};
 
 export interface Score {
   proximity: number;
@@ -55,13 +74,16 @@ export interface Zone {
   hi: number;
   price: number; // representative price (midpoint)
   sources: Source[];
-  role: string;
+  role: Role;
   score: Score;
   grade: 'main' | 'secondary' | 'reserve' | 'drop';
   label?: string; // S1…S5 / R1…R5
 }
 
-export const GRADE_VI: Record<Zone['grade'], string> = { main: 'Chính', secondary: 'Phụ', reserve: 'Dự phòng', drop: 'Bỏ' };
+export const GRADE_LABEL: Record<Lang, Record<Zone['grade'], string>> = {
+  vi: { main: 'Chính', secondary: 'Phụ', reserve: 'Dự phòng', drop: 'Bỏ' },
+  en: { main: 'Main', secondary: 'Secondary', reserve: 'Reserve', drop: 'Drop' },
+};
 
 export function buildLevelMap(r: ExposureResult) {
   const S = r.spot;
@@ -119,7 +141,7 @@ export function buildLevelMap(r: ExposureResult) {
       total: 0,
     };
     score.total = score.proximity + score.exposure + score.activity + score.oi + score.confluence;
-    const role = ROLE.find(([s]) => g.sources.has(s))?.[1] ?? '—';
+    const role = ROLE.find(([s]) => g.sources.has(s))![1]; // every source has a role
     const grade: Zone['grade'] = score.total >= 12 ? 'main' : score.total >= 9 ? 'secondary' : score.total >= 6 ? 'reserve' : 'drop';
     return { lo: g.lo, hi: g.hi, price, sources, role, score, grade };
   });

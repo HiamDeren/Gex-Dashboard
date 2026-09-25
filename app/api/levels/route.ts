@@ -1,7 +1,8 @@
 import { errorResponse, getChain, readSymbol } from '@/lib/server/cboe.ts';
 import { filterContracts, makeMapper, type Weight } from '@/lib/core.ts';
 import { compute } from '@/lib/exposure.ts';
-import { buildLevelMap } from '@/lib/levels.ts';
+import { buildLevelMap, ROLE_LABEL } from '@/lib/levels.ts';
+import { isLang } from '@/lib/i18n.ts';
 import { read } from '@/lib/bias.ts';
 import { ivTrend, termShape, termStructure } from '@/lib/vol.ts';
 
@@ -9,8 +10,9 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Computed levels as JSON — for ATAS / scripts.
- * GET /api/levels?symbol=NDX&expiry=all&weight=oi&sign=1&range=5&fut=21500&nodeMin=1000
+ * GET /api/levels?symbol=NDX&expiry=all&weight=oi&sign=1&range=5&fut=21500&nodeMin=1000&lang=vi
  * v0.1 fields are unchanged; exposures, expectedMove, bias and the S/R map are additions.
+ * `lang` (vi | en, default vi) only changes the text fields: bias sentence / warnings / cell and zone roles.
  */
 export async function GET(req: Request) {
   try {
@@ -19,6 +21,8 @@ export async function GET(req: Request) {
     const e = await getChain(sym);
     const q = url.searchParams;
     const expiry = q.get('expiry') || 'all';
+    const l = q.get('lang');
+    const lang = isLang(l) ? l : 'vi';
     const w = q.get('weight');
     const opts = {
       weight: (['oi', 'vol', 'oivol'].includes(w ?? '') ? w : 'oi') as Weight,
@@ -31,11 +35,11 @@ export async function GET(req: Request) {
     const r = compute(e.chain, contracts, opts);
     const map = buildLevelMap(r);
     const ts = termStructure(e.chain.contracts, e.chain.spot);
-    const rd = read(e.chain, r, map, ivTrend(e.chain), termShape(ts)?.shape ?? null);
+    const rd = read(e.chain, r, map, ivTrend(e.chain), termShape(ts)?.shape ?? null, Date.now(), lang);
     const mapper = makeMapper(sym, e.chain.spot, Number(q.get('fut')));
     const m = (x: number | null) => (x == null ? null : +(mapper ? mapper.map(x) : x).toFixed(2));
     const zone = (z: (typeof map.supports)[number]) => ({
-      label: z.label, lo: z.lo, hi: z.hi, price: +z.price.toFixed(2), mapped: m(z.price), role: z.role, sources: z.sources, score: z.score.total, grade: z.grade,
+      label: z.label, lo: z.lo, hi: z.hi, price: +z.price.toFixed(2), mapped: m(z.price), role: ROLE_LABEL[lang][z.role], sources: z.sources, score: z.score.total, grade: z.grade,
     });
 
     return Response.json(
@@ -45,6 +49,7 @@ export async function GET(req: Request) {
         cboeTimestamp: e.chain.cboeTimestamp,
         fetchedAt: e.at,
         expiry,
+        lang,
         ...opts,
         regime: r.regime,
         nearFlip: r.nearFlip,

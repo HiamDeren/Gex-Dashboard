@@ -24,10 +24,8 @@ export function compact(x: number) {
   if (a >= 1e3) return `${s}${(a / 1e3).toFixed(1)}K`;
   return `${s}${a.toFixed(0)}`;
 }
-export function ago(ms: number, now = Date.now()) {
-  const s = Math.max(0, Math.round((now - ms) / 1000));
-  return s < 60 ? `${s}s trước` : `${Math.floor(s / 60)}m ${s % 60}s trước`;
-}
+/** Whole seconds elapsed since `ms`; the UI words it per language. */
+export const secondsSince = (ms: number, now = Date.now()) => Math.max(0, Math.round((now - ms) / 1000));
 export function etTime(ms: number) {
   const t = nyDate(ms);
   return `${String(t.h).padStart(2, '0')}:${String(t.min).padStart(2, '0')}`;

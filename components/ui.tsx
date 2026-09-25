@@ -1,6 +1,15 @@
 'use client';
 /** Small shared UI pieces: element width, tooltip, segmented control, chart helpers. */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { DICT, LANGS, type Lang } from '@/lib/i18n';
+
+const LangContext = createContext<Lang>('vi');
+export const LangProvider = LangContext.Provider;
+/** Current UI language and its dictionary. */
+export function useLang() {
+  const lang = useContext(LangContext);
+  return { lang, t: DICT[lang] };
+}
 
 export const COLORS = {
   call: '#34d3b4',
@@ -46,6 +55,18 @@ export function Seg<T extends string>({ value, options, onChange }: { value: T; 
     <div className="seg" role="group">
       {options.map(([v, label]) => (
         <button key={v} type="button" aria-pressed={v === value} onClick={() => onChange(v)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function LangSwitch({ value, onChange }: { value: Lang; onChange: (l: Lang) => void }) {
+  return (
+    <div className="lang" role="group" aria-label={DICT[value].langName}>
+      {LANGS.map(([l, label]) => (
+        <button key={l} type="button" lang={l} aria-pressed={l === value} onClick={() => onChange(l)}>
           {label}
         </button>
       ))}

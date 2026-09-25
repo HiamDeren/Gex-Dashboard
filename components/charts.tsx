@@ -5,7 +5,7 @@ import type { StrikeRow } from '@/lib/exposure';
 import type { Heatmap as HeatmapData } from '@/lib/heatmap';
 import type { SmilePoint, TermPoint } from '@/lib/vol';
 import { compact, etTime, int, lvl, money, pct, px, strikeFmt } from '@/lib/format';
-import { COLORS, niceTicks, spreadLabels, Tag, useTip, useWidth } from './ui';
+import { COLORS, niceTicks, spreadLabels, Tag, useLang, useTip, useWidth } from './ui';
 
 type Mapper = { map: (x: number) => number } | null;
 export interface LevelLine {
@@ -25,13 +25,6 @@ export const METRIC_LABEL: Record<Metric, string> = {
   vanna: 'Vanna',
   charm: 'Charm',
   contracts: 'Net contracts',
-};
-export const METRIC_NOTE: Record<Metric, string> = {
-  gex: '$ delta dealer đổi khi giá đi 1%',
-  dex: '$ delta người giữ option nắm (call +, put −)',
-  vanna: 'Dòng hedge dealer nếu IV +1 điểm (+ = mua)',
-  charm: 'Dòng hedge dealer mỗi ngày do thời gian trôi (+ = mua)',
-  contracts: 'Vị thế ròng dealer (mô hình naive): + = long option, − = short',
 };
 
 function metricValues(r: StrikeRow, metric: Metric, split: boolean): [number, number] | number {
@@ -56,6 +49,7 @@ export function StrikeProfile({
 }) {
   const [ref, W0] = useWidth<HTMLDivElement>();
   const tip = useTip();
+  const { t } = useLang();
   const W = Math.max(W0, 320);
   const H = height;
   const padL = 70, padR = 150, padT = 12, padB = 26;
@@ -77,7 +71,7 @@ export function StrikeProfile({
     return { y, vals, maxAbs, x0, xs, bh };
   }, [rows, metric, canSplit, W, H, hi, lo, nodeMin]);
 
-  if (!rows.length) return <div className="empty">Không có strike trong khoảng — nới Range hoặc đổi Expiry.</div>;
+  if (!rows.length) return <div className="empty">{t.noStrikes}</div>;
   const { y, vals, maxAbs, x0, xs, bh } = geo;
   const posFill = 'url(#pfPos)';
   const negFill = metric === 'contracts' ? 'url(#pfNegC)' : 'url(#pfNeg)';
@@ -103,7 +97,7 @@ export function StrikeProfile({
 
   return (
     <div className="svg-host" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${METRIC_LABEL[metric]} theo strike`} onMouseMove={onMove} onMouseLeave={tip.hide}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t.byStrike(METRIC_LABEL[metric])} onMouseMove={onMove} onMouseLeave={tip.hide}>
         <defs>
           <linearGradient id="pfPos" x1="0" x2="1"><stop offset="0" stopColor={COLORS.call} stopOpacity="0.55" /><stop offset="1" stopColor={COLORS.call} /></linearGradient>
           <linearGradient id="pfNeg" x1="1" x2="0"><stop offset="0" stopColor={COLORS.put} stopOpacity="0.55" /><stop offset="1" stopColor={COLORS.put} /></linearGradient>
@@ -149,6 +143,7 @@ export function StrikeProfile({
 }
 
 function StrikeTip({ r, mapper }: { r: StrikeRow; mapper: Mapper }) {
+  const { t } = useLang();
   return (
     <>
       <b>{strikeFmt(r.K)}</b>
@@ -156,9 +151,9 @@ function StrikeTip({ r, mapper }: { r: StrikeRow; mapper: Mapper }) {
       <br />
       GEX {money(r.netGex)} <span className="sub">(<span className="pos">C {money(r.callGex)}</span> · <span className="neg">P {money(r.putGex)}</span>)</span>
       <br />
-      DEX {money(r.dex)} · Net {int(r.netContracts)} hđ
+      DEX {money(r.dex)} · Net {int(r.netContracts)} {t.contractsAbbr}
       <br />
-      Vanna flow {money(-r.vanna)}/1 vol · Charm flow {money(-r.charm)}/ngày
+      Vanna flow {money(-r.vanna)}/1 vol · Charm flow {money(-r.charm)}{t.perDay}
       <br />
       <span className="sub">
         OI C {int(r.callOi)} / P {int(r.putOi)} · Vol C {int(r.callVol)} / P {int(r.putVol)} · 0-1DTE vol {int(r.shortVol)}
@@ -173,6 +168,7 @@ function StrikeTip({ r, mapper }: { r: StrikeRow; mapper: Mapper }) {
 export function GexCurve({ curve, spot, zeroGamma, em }: { curve: { S: number; gex: number }[]; spot: number; zeroGamma: number | null; em: { lo: number; hi: number } | null }) {
   const [ref, W0] = useWidth<HTMLDivElement>();
   const tip = useTip();
+  const { t } = useLang();
   const W = Math.max(W0, 320);
   const H = 240;
   const padL = 70, padR = 150, padT = 12, padB = 26;
@@ -196,14 +192,14 @@ export function GexCurve({ curve, spot, zeroGamma, em }: { curve: { S: number; g
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label="Tổng GEX theo giá spot"
+        aria-label={t.gexVsSpot}
         onMouseMove={(e) => {
           const b = e.currentTarget.getBoundingClientRect();
           const xv = ((e.clientX - b.left) / b.width) * W;
           const S = lo + ((xv - padL) / (W - padL - padR)) * (hi - lo);
           if (S < lo || S > hi) return tip.hide();
           const best = curve.reduce((a, p) => (Math.abs(p.S - S) < Math.abs(a.S - S) ? p : a));
-          tip.show(e, <>Nếu spot = <b>{px(best.S)}</b><br />Tổng GEX <span className={best.gex >= 0 ? 'pos' : 'neg'}>{money(best.gex)}</span> / 1%</>);
+          tip.show(e, <>{t.ifSpot}<b>{px(best.S)}</b><br />{t.totalGex} <span className={best.gex >= 0 ? 'pos' : 'neg'}>{money(best.gex)}</span> / 1%</>);
         }}
         onMouseLeave={tip.hide}
       >
@@ -250,6 +246,7 @@ export function GexCurve({ curve, spot, zeroGamma, em }: { curve: { S: number; g
 export function Heatmap({ hm, spot, kind, mapper }: { hm: HeatmapData; spot: number; kind: 'gamma' | 'charm'; mapper: Mapper }) {
   const [ref, W0] = useWidth<HTMLDivElement>();
   const tip = useTip();
+  const { t: tr } = useLang();
   const W = Math.max(W0, 320);
   const H = 420;
   const padL = 70, padR = 12, padT = 10, padB = 28;
@@ -300,9 +297,9 @@ export function Heatmap({ hm, spot, kind, mapper }: { hm: HeatmapData; spot: num
               {kind === 'gamma' ? (
                 <>GEX <span className={v >= 0 ? 'pos' : 'neg'}>{money(v)}</span> / 1%</>
               ) : (
-                <>Charm flow <span className={v >= 0 ? 'pos' : 'warn'}>{money(v)}</span> / giờ ({v >= 0 ? 'dealer mua thụ động' : 'dealer bán thụ động'})</>
+                <>Charm flow <span className={v >= 0 ? 'pos' : 'warn'}>{money(v)}</span> {tr.perHour} ({v >= 0 ? tr.dealersBuyPassive : tr.dealersSellPassive})</>
               )}
-              {kind === 'gamma' && hm.flip[t] != null && (<><br /><span className="sub">Flip lúc này: {lvl(hm.flip[t])}</span></>)}
+              {kind === 'gamma' && hm.flip[t] != null && (<><br /><span className="sub">{tr.flipNow} {lvl(hm.flip[t])}</span></>)}
             </>,
           );
         }}
@@ -342,10 +339,11 @@ export function Heatmap({ hm, spot, kind, mapper }: { hm: HeatmapData; spot: num
 export function SmileChart({ points, spot }: { points: SmilePoint[]; spot: number }) {
   const [ref, W0] = useWidth<HTMLDivElement>();
   const tip = useTip();
+  const { t } = useLang();
   const W = Math.max(W0, 320);
   const H = 280;
   const padL = 52, padR = 16, padT = 12, padB = 26;
-  if (points.length < 2) return <div className="empty">Không đủ dữ liệu IV cho kỳ hạn này.</div>;
+  if (points.length < 2) return <div className="empty">{t.noIvData}</div>;
   const ivs = points.flatMap((p) => [p.callIv, p.putIv, p.otmIv]).filter((v): v is number => v != null);
   const minY = Math.min(...ivs) * 0.95, maxY = Math.max(...ivs) * 1.05;
   const lo = points[0].K, hi = points[points.length - 1].K;
@@ -364,7 +362,7 @@ export function SmileChart({ points, spot }: { points: SmilePoint[]; spot: numbe
           const b = e.currentTarget.getBoundingClientRect();
           const K = lo + (((e.clientX - b.left) / b.width) * W - padL) / (W - padL - padR) * (hi - lo);
           const p = points.reduce((a, q) => (Math.abs(q.K - K) < Math.abs(a.K - K) ? q : a));
-          tip.show(e, <><b>{strikeFmt(p.K)}</b> ({pct(p.K / spot - 1, 2)} so với spot)<br />OTM IV {pct(p.otmIv)} · <span className="pos">Call {pct(p.callIv)}</span> · <span className="neg">Put {pct(p.putIv)}</span></>);
+          tip.show(e, <><b>{strikeFmt(p.K)}</b> ({pct(p.K / spot - 1, 2)} {t.vsSpot})<br />OTM IV {pct(p.otmIv)} · <span className="pos">Call {pct(p.callIv)}</span> · <span className="neg">Put {pct(p.putIv)}</span></>);
         }}
         onMouseLeave={tip.hide}
       >
@@ -393,10 +391,11 @@ export function SmileChart({ points, spot }: { points: SmilePoint[]; spot: numbe
 export function TermChart({ ts }: { ts: TermPoint[] }) {
   const [ref, W0] = useWidth<HTMLDivElement>();
   const tip = useTip();
+  const { t } = useLang();
   const W = Math.max(W0, 320);
   const H = 240;
   const padL = 52, padR = 16, padT = 12, padB = 40;
-  if (ts.length < 2) return <div className="empty">Không đủ kỳ hạn.</div>;
+  if (ts.length < 2) return <div className="empty">{t.notEnoughExpiries}</div>;
   const ivs = ts.map((p) => p.atmIv);
   const minY = Math.min(...ivs) * 0.92, maxY = Math.max(...ivs) * 1.08;
   const x = (i: number) => padL + (i / (ts.length - 1)) * (W - padL - padR);
@@ -412,7 +411,7 @@ export function TermChart({ ts }: { ts: TermPoint[] }) {
           const b = e.currentTarget.getBoundingClientRect();
           const i = Math.round(((((e.clientX - b.left) / b.width) * W - padL) / (W - padL - padR)) * (ts.length - 1));
           const p = ts[Math.min(ts.length - 1, Math.max(0, i))];
-          tip.show(e, <><b>{p.exp}</b> ({p.days.toFixed(1)} ngày)<br />ATM IV {pct(p.atmIv)} @ {strikeFmt(p.atmK)}<br />25Δ RR {p.rr25 == null ? '—' : `${(p.rr25 * 100).toFixed(1)} vol`}</>);
+          tip.show(e, <><b>{p.exp}</b> ({p.days.toFixed(1)} {t.days})<br />ATM IV {pct(p.atmIv)} @ {strikeFmt(p.atmK)}<br />25Δ RR {p.rr25 == null ? '—' : `${(p.rr25 * 100).toFixed(1)} vol`}</>);
         }}
         onMouseLeave={tip.hide}
       >

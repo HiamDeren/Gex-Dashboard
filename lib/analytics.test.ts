@@ -4,7 +4,7 @@ import { bsGamma, bsGreeks, ncdf, parseCboe, sessionWindow, yearsTo, MULTIPLIER 
 import { compute } from './exposure.ts';
 import { buildHeatmap } from './heatmap.ts';
 import { buildLevelMap } from './levels.ts';
-import { read, MATRIX } from './bias.ts';
+import { read, scenarios, premarketText, MATRIX } from './bias.ts';
 import { termStructure, smile, ivTrend } from './vol.ts';
 import { buildMock } from './mock.ts';
 
@@ -116,9 +116,23 @@ test('level map: supports below spot, resistances above, nearest first, ≤5 per
 test('reading uses the curriculum matrix cell', () => {
   const map = buildLevelMap(r);
   const rd = read(chain, r, map, ivTrend(chain), null, NOW);
-  assert.equal(rd.cell, MATRIX[rd.gex][rd.dex]);
+  assert.equal(rd.cell, MATRIX.vi[rd.gex][rd.dex]);
   assert.equal(rd.iv, 'compressing'); // mock iv30_change = -0.4
   assert.match(rd.sentence, /^Chế độ đang /);
+});
+
+test('reading, scenarios and journal follow the requested language', () => {
+  const map = buildLevelMap(r);
+  const en = read(chain, r, map, ivTrend(chain), 'front-rich', NOW, 'en');
+  const vi = read(chain, r, map, ivTrend(chain), 'front-rich', NOW, 'vi');
+  assert.equal(en.cell, MATRIX.en[en.gex][en.dex]);
+  assert.match(en.sentence, /^The regime is /);
+  assert.equal(en.warnings.length, vi.warnings.length);
+  assert.ok(en.warnings.every((w) => !/[ạảãầấậẩẫằắặẳẵẹẻẽềếệểễịỉĩọỏõồốộổỗờớợởỡụủũừứựửữỳỵỷỹđ]/i.test(w)), 'no Vietnamese left in en warnings');
+  const text = premarketText(chain, r, map, en, 'NQ', 'en');
+  assert.match(text, /^DATE: /);
+  assert.ok(text.split('\n').some((l) => l.startsWith('Regime:           ')), 'labels padded to 18 columns');
+  assert.deepEqual(scenarios(r, map, en.gex, 'en').length, scenarios(r, map, vi.gex, 'vi').length);
 });
 
 test('vol: term structure has ATM IV and downside skew on the mock', () => {

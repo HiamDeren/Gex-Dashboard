@@ -11,6 +11,7 @@
  *   Charm  = q · charm/365 · 100 · S       $ of dealer delta change per calendar day
  * Dealers hedge the opposite way: a dealer delta change of X means they trade −X in futures.
  */
+import type { Lang } from './i18n.ts';
 import {
   bsGamma,
   bsGreeks,
@@ -67,6 +68,13 @@ export interface ExpectedMove {
 }
 
 export type ProfileQuality = 'clean' | 'messy' | 'thin';
+/** Profile quality plus the facts behind it; `profileReason` turns it into text. */
+export interface Profile {
+  quality: ProfileQuality;
+  nodeMin: number;
+  nodes: number; // strikes near spot with |net contracts| ≥ nodeMin
+  topK: number | null; // largest node near spot
+}
 
 export interface ExposureResult {
   spot: number;
@@ -94,7 +102,7 @@ export interface ExposureResult {
   speed: 'positive' | 'negative' | null;
   topStrikes: StrikeRow[];
   nodes: { pos: StrikeRow[]; neg: StrikeRow[] };
-  profile: { quality: ProfileQuality; reason: string };
+  profile: Profile;
   expectedMove: ExpectedMove | null;
   contractsUsed: number;
 }
@@ -232,19 +240,30 @@ export function compute(chain: Chain, contracts: Contract[], opts: Partial<Expos
   };
 }
 
-function profileQuality(strikes: StrikeRow[], S: number, band: number, nodeMin: number): { quality: ProfileQuality; reason: string } {
+function profileQuality(strikes: StrikeRow[], S: number, band: number, nodeMin: number): Profile {
   const near = strikes.filter((r) => Math.abs(r.K - S) <= 1.5 * band);
   const big = near.filter((r) => Math.abs(r.netContracts) >= nodeMin);
-  if (!big.length) return { quality: 'thin', reason: `Không có node nào ≥ ${nodeMin.toLocaleString('en-US')} net contracts quanh spot` };
+  if (!big.length) return { quality: 'thin', nodeMin, nodes: 0, topK: null };
   const top = [...near].sort((a, b) => Math.abs(b.netContracts) - Math.abs(a.netContracts)).slice(0, 6);
   const byK = [...top].sort((a, b) => a.K - b.K);
   let flips = 0;
   for (let i = 1; i < byK.length; i++) if (byK[i].netContracts >= 0 !== byK[i - 1].netContracts >= 0) flips++;
   const dominance = top.length > 1 && top[1].netContracts !== 0 ? Math.abs(top[0].netContracts / top[1].netContracts) : Infinity;
-  if (top.length >= 5 && flips >= 4 && dominance < 1.3) {
-    return { quality: 'messy', reason: 'Node dương/âm xen kẽ đều nhau, không có node nổi trội' };
+  const quality = top.length >= 5 && flips >= 4 && dominance < 1.3 ? 'messy' : 'clean';
+  return { quality, nodeMin, nodes: big.length, topK: top[0].K };
+}
+
+export function profileReason(p: Profile, lang: Lang = 'vi'): string {
+  const n = p.nodeMin.toLocaleString('en-US');
+  const k = p.topK?.toLocaleString('en-US') ?? '—';
+  if (lang === 'en') {
+    if (p.quality === 'thin') return `No node ≥ ${n} net contracts near spot`;
+    if (p.quality === 'messy') return 'Positive and negative nodes alternate evenly, no dominant node';
+    return `${p.nodes} node${p.nodes === 1 ? '' : 's'} ≥ ${n} near spot, largest at ${k}`;
   }
-  return { quality: 'clean', reason: `${big.length} node ≥ ${nodeMin.toLocaleString('en-US')} quanh spot, node lớn nhất ${top[0].K.toLocaleString('en-US')}` };
+  if (p.quality === 'thin') return `Không có node nào ≥ ${n} net contracts quanh spot`;
+  if (p.quality === 'messy') return 'Node dương/âm xen kẽ đều nhau, không có node nổi trội';
+  return `${p.nodes} node ≥ ${n} quanh spot, node lớn nhất ${k}`;
 }
 
 /** Front-expiry ATM straddle, plus the curriculum's 1-day move: Spot × IV × √(1/252). */
