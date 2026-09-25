@@ -1,5 +1,11 @@
 node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
 .env
+.env*.local
 *.log
 .DS_Store
 Thumbs.db
+.claude/
